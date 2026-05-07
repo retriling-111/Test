@@ -3,218 +3,462 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>Ultimate Flappy Bird</title>
+    <title>Bird - Ultimate Edition</title>
+    
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
     <style>
-        body { margin: 0; padding: 0; overflow: hidden; background: #222; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; display: flex; align-items: center; justify-content: center; height: 100vh; }
-        canvas { display: block; box-shadow: 0 0 20px rgba(0,0,0,0.5); border-radius: 5px; cursor: pointer; }
-        #ui-layer { position: absolute; text-align: center; color: white; pointer-events: none; width: 100%; max-width: 400px; }
-        .score-val { font-size: 50px; font-weight: bold; text-shadow: 2px 2px 5px rgba(0,0,0,0.5); margin-top: 20px; }
-        .message { font-size: 20px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 10px; display: none; }
+        :root {
+            --ios-blur: blur(40px);
+            --ios-bg: rgba(255, 255, 255, 0.7);
+            --ios-dark-bg: rgba(20, 20, 20, 0.85);
+            --ios-accent: #007AFF;
+            --ios-gold: #FFCC00;
+            --ios-red: #FF3B30;
+            --ios-green: #34C759;
+            --safe-area-top: env(safe-area-inset-top);
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; margin: 0; padding: 0; }
+
+        body { 
+            background: #000; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif; 
+            height: 100vh; width: 100vw; overflow: hidden; touch-action: none;
+        }
+
+        #loading-screen {
+            position: fixed; inset: 0; background: #fff; z-index: 10000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.8s ease;
+        }
+
+        #app-container { position: relative; width: 100%; height: 100%; display: none; }
+        canvas { display: block; width: 100%; height: 100%; }
+
+        /* HUD */
+        #hud {
+            position: absolute; top: calc(20px + var(--safe-area-top)); width: 100%;
+            display: flex; justify-content: space-between; align-items: center; padding: 0 25px; z-index: 10; pointer-events: none;
+        }
+        .score-pill { 
+            background: rgba(0,0,0,0.3); backdrop-filter: blur(15px); padding: 8px 20px; 
+            border-radius: 30px; color: white; font-weight: 800; font-size: 20px;
+        }
+
+        /* Menu Overlays */
+        #menu-overlay {
+            position: absolute; inset: 0; z-index: 500;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.2); backdrop-filter: blur(25px);
+        }
+        .glass-card {
+            width: 90%; max-width: 380px; padding: 30px; border-radius: 40px;
+            background: var(--ios-bg); text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+        }
+
+        /* Buttons */
+        .btn-ios {
+            width: 100%; padding: 16px; border-radius: 18px; border: none;
+            font-size: 17px; font-weight: 700; margin-bottom: 10px;
+            cursor: pointer; transition: 0.2s;
+        }
+        .btn-primary { background: var(--ios-accent); color: white; }
+        .btn-secondary { background: rgba(0,0,0,0.05); color: #000; }
+        .btn-ios:active { transform: scale(0.96); opacity: 0.8; }
+
+        /* iOS Sheets */
+        .ios-sheet {
+            position: absolute; bottom: -100%; left: 0; width: 100%; height: 92%;
+            background: var(--ios-bg); backdrop-filter: var(--ios-blur); -webkit-backdrop-filter: var(--ios-blur);
+            border-radius: 40px 40px 0 0; z-index: 1000;
+            transition: bottom 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+            display: flex; flex-direction: column; box-shadow: 0 -10px 30px rgba(0,0,0,0.1);
+        }
+        .ios-sheet.active { bottom: 0; }
+        .handle-bar { width: 100%; padding: 15px 0; cursor: pointer; }
+        .handle { width: 40px; height: 5px; background: rgba(0,0,0,0.15); border-radius: 10px; margin: 0 auto; }
+        .sheet-content { flex: 1; overflow-y: auto; padding: 0 25px 40px 25px; }
+
+        /* Grids & Lists */
+        .item-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+        .item-card { 
+            background: #fff; padding: 20px; border-radius: 25px; text-align: center;
+            border: 3px solid transparent; transition: 0.3s;
+        }
+        .item-card.selected { border-color: var(--ios-accent); background: #f0f7ff; }
+
+        .list-group { background: #fff; border-radius: 20px; overflow: hidden; margin-bottom: 20px; text-align: left; }
+        .list-row { padding: 16px 20px; border-bottom: 1px solid #f2f2f7; display: flex; justify-content: space-between; align-items: center; }
+
+        .power-tag { background: var(--ios-green); color: white; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 700; display: none; }
+        
+        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
     </style>
 </head>
 <body>
 
-    <div id="ui-layer">
-        <div id="currentScore" class="score-val">0</div>
-        <div id="startMessage" class="message" style="display: block;">TAP TO START</div>
-        <div id="gameOverMessage" class="message">
-            <h1 style="color: #ff4757;">GAME OVER</h1>
-            <p>Best Score: <span id="bestScore">0</span></p>
-            <p>Tap to Retry</p>
+<div id="loading-screen">
+    <div style="width: 60px; height: 45px; background: var(--ios-gold); border-radius: 12px; animation: bounce 0.6s infinite alternate;"></div>
+    <div style="width: 180px; height: 4px; background: #eee; border-radius: 10px; margin-top: 30px; overflow: hidden;">
+        <div id="progress-bar" style="width: 0%; height: 100%; background: var(--ios-accent); transition: 0.2s;"></div>
+    </div>
+</div>
+
+<div id="auth-screen" style="position: fixed; inset: 0; background: #fff; z-index: 9000; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 40px;">
+    <h1 style="font-size: 38px; font-weight: 900; letter-spacing: -1.5px;">RetriLing ID</h1>
+    <p style="color:#8e8e93; margin-bottom: 40px;">Sign in to sync your progress</p>
+    <input type="email" id="email" style="width: 100%; max-width: 340px; padding: 18px; margin-bottom: 12px; border-radius: 15px; border: 1px solid #ddd; background: #f9f9f9; outline: none;" placeholder="Email">
+    <input type="password" id="password" style="width: 100%; max-width: 340px; padding: 18px; margin-bottom: 25px; border-radius: 15px; border: 1px solid #ddd; background: #f9f9f9; outline: none;" placeholder="Password">
+    <button class="btn-ios btn-primary" onclick="handleAuth('login')">Sign In</button>
+    <button class="btn-ios btn-secondary" onclick="handleAuth('signup')">Create Account</button>
+</div>
+
+<div id="app-container">
+    <div id="hud">
+        <div class="score-pill">Score: <span id="score-text">0</span></div>
+        <div style="pointer-events: auto; display: flex; gap: 10px;">
+            <button id="pause-btn" onclick="pauseGame()" style="display:none; background:rgba(255,255,255,0.3); border:none; padding: 12px; border-radius: 20px; backdrop-filter: blur(10px); cursor: pointer;">⏸️</button>
+            <button onclick="openSheet('shop-sheet')" style="background:rgba(255,255,255,0.3); border:none; padding: 12px; border-radius: 20px; backdrop-filter: blur(10px); cursor: pointer;">👕</button>
         </div>
     </div>
+
     <canvas id="gameCanvas"></canvas>
 
-    <script>
-        const canvas = document.getElementById("gameCanvas");
-        const ctx = canvas.getContext("2d");
-        const uiStart = document.getElementById("startMessage");
-        const uiOver = document.getElementById("gameOverMessage");
-        const uiScore = document.getElementById("currentScore");
-        const uiBest = document.getElementById("bestScore");
+    <!-- Main Menu -->
+    <div id="menu-overlay">
+        <div class="glass-card">
+            <h1 style="font-size: 40px; font-weight: 900; letter-spacing: -2px; margin-bottom: 5px;">RetriLing</h1>
+            <div style="display: flex; justify-content: space-around; margin-bottom: 20px;">
+                <div><small style="color:#8e8e93">Best</small><br><b id="high-score-val">0</b></div>
+                <div><small style="color:#8e8e93">Coins</small><br><b id="coin-val-menu" style="color:var(--ios-gold)">0</b></div>
+            </div>
+            <button class="btn-ios btn-primary" onclick="startGame()">Start Game</button>
+            <button class="btn-ios btn-secondary" onclick="openSheet('theme-sheet')">Environments</button>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                <button class="btn-ios btn-secondary" onclick="openSheet('about-sheet')">About</button>
+                <button class="btn-ios btn-secondary" onclick="openSheet('settings-sheet')">Settings</button>
+            </div>
+        </div>
+    </div>
 
-        // Responsive Setup
-        canvas.width = Math.min(window.innerWidth, 400);
-        canvas.height = Math.min(window.innerHeight, 640);
+    <!-- Shop Sheet -->
+    <div id="shop-sheet" class="ios-sheet">
+        <div class="handle-bar" onclick="closeSheet('shop-sheet')"><div class="handle"></div></div>
+        <div class="sheet-content">
+            <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 10px;">Bird Skins</h2>
+            <p style="margin-bottom: 20px; font-weight: 700;">Balance: <span id="coin-val-shop" style="color:var(--ios-gold)">0</span> 🪙</p>
+            <div class="item-grid" id="skin-grid"></div>
+        </div>
+    </div>
 
-        // Game Constants & State
-        let gameState = "START"; // START, PLAYING, GAMEOVER
-        let score = 0;
-        let highScore = localStorage.getItem("flappyHighScore") || 0;
-        let frames = 0;
+    <!-- Theme Sheet -->
+    <div id="theme-sheet" class="ios-sheet">
+        <div class="handle-bar" onclick="closeSheet('theme-sheet')"><div class="handle"></div></div>
+        <div class="sheet-content">
+            <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 20px;">Themes</h2>
+            <div class="item-grid" id="theme-grid"></div>
+        </div>
+    </div>
 
-        const bird = {
-            x: 50, y: 200, w: 34, h: 24,
-            gravity: 0.25,
-            lift: -5,
-            velocity: 0,
-            radius: 12,
-            rotation: 0
-        };
+    <!-- About Sheet -->
+    <div id="about-sheet" class="ios-sheet">
+        <div class="handle-bar" onclick="closeSheet('about-sheet')"><div class="handle"></div></div>
+        <div class="sheet-content">
+            <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 15px;">About Game</h2>
+            <div class="list-group">
+                <div class="list-row"><span>Version</span><span style="color:#8e8e93">2.0.0 Ultimate</span></div>
+                <div class="list-row"><span>Developer</span><span style="color:#8e8e93">Bird (Khant)</span></div>
+            </div>
+            <p style="color:#666; line-height: 1.6; margin-bottom: 20px;">This is a next-gen Flappy Bird clone with cloud sync, shop system, and iOS-style aesthetics.</p>
+            <button class="btn-ios btn-primary" onclick="window.location.href='mailto:support@bird.com'">Contact Support</button>
+        </div>
+    </div>
 
-        const pipes = [];
-        const pipeConfig = { width: 52, gap: 130, speed: 2.5, minHeight: 50 };
+    <!-- Settings Sheet -->
+    <div id="settings-sheet" class="ios-sheet">
+        <div class="handle-bar" onclick="closeSheet('settings-sheet')"><div class="handle"></div></div>
+        <div class="sheet-content">
+            <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 20px;">Settings</h2>
+            <div class="list-group">
+                <div class="list-row">
+                    <span>Mute Sound</span>
+                    <input type="checkbox" id="sound-toggle" onchange="toggleSound()">
+                </div>
+                <div class="list-row" style="color:var(--ios-red)" onclick="resetGameData()">
+                    <span>Reset Game Data</span>
+                    <span>⚠️</span>
+                </div>
+            </div>
+            <div class="list-group">
+                <div class="list-row"><span id="user-email-display" style="font-size: 14px; color:#8e8e93">Guest</span></div>
+                <div class="list-row" onclick="logout()" style="color:var(--ios-red)"><span>Sign Out</span></div>
+            </div>
+        </div>
+    </div>
+</div>
 
-        // Functions
-        function resetGame() {
-            bird.y = 200;
-            bird.velocity = 0;
-            bird.rotation = 0;
-            pipes.length = 0;
-            score = 0;
-            uiScore.innerText = score;
-            gameState = "PLAYING";
-            uiStart.style.display = "none";
-            uiOver.style.display = "none";
+<script>
+    // --- Firebase & State ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyD-Q5i5pWH2RW43FEODNepFKwX3grDvkgc",
+        authDomain: "gameforme-5caaa.firebaseapp.com",
+        projectId: "gameforme-5caaa",
+        storageBucket: "gameforme-5caaa.appspot.com",
+        messagingSenderId: "543947662630",
+        appId: "1:543947662630:web:f98681238db1f86d528de7"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let gameState = "MENU"; // MENU, PLAYING, PAUSED
+    let score = 0, frame = 0, isMuted = false;
+    let playerData = {
+        coins: 0, highScore: 0,
+        activeSkin: "classic", ownedSkins: ["classic"],
+        activeTheme: "day", ownedThemes: ["day"]
+    };
+
+    const skins = {
+        classic: { name: "Classic", color: "#FFCC00", price: 0 },
+        midnight: { name: "Midnight", color: "#1C1C1E", price: 200 },
+        neon: { name: "Neon", color: "#32ADE6", price: 500 },
+        ruby: { name: "Ruby", color: "#FF2D55", price: 1000 },
+        gold: { name: "Gold", color: "#FFD700", price: 5000 }
+    };
+
+    const themes = {
+        day: { name: "Daylight", bg: ["#74ebd5", "#acb6e5"], pipe: "#2ecc71", price: 0 },
+        space: { name: "Space", bg: ["#0f0c29", "#302b63"], pipe: "#5856D6", price: 500 },
+        cyberpunk: { name: "Neon", bg: ["#200122", "#6f0000"], pipe: "#FF2D55", price: 1000 }
+    };
+
+    // --- Core Engine ---
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+    const bird = { x: 50, y: 0, w: 34, h: 26, vel: 0, grav: 0.25, jump: -5.5, rot: 0 };
+    const pipes = [];
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        bird.x = canvas.width / 4;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // --- Auth Logic ---
+    auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('app-container').style.display = 'block';
+            document.getElementById('user-email-display').innerText = user.email;
+            const doc = await db.collection('players').doc(user.uid).get();
+            if (doc.exists) playerData = { ...playerData, ...doc.data() };
+            else await db.collection('players').doc(user.uid).set(playerData);
+            updateUI();
+        } else {
+            document.getElementById('auth-screen').style.display = 'flex';
+        }
+    });
+
+    async function handleAuth(type) {
+        const e = document.getElementById('email').value;
+        const p = document.getElementById('password').value;
+        if(!e || !p) return alert("Fill all fields");
+        try {
+            if(type === 'signup') await auth.createUserWithEmailAndPassword(e, p);
+            else await auth.signInWithEmailAndPassword(e, p);
+        } catch(err) { alert(err.message); }
+    }
+
+    async function syncData() {
+        if (auth.currentUser) {
+            await db.collection('players').doc(auth.currentUser.uid).set(playerData);
+        }
+    }
+
+    // --- Game Actions ---
+    function startGame() {
+        gameState = "PLAYING";
+        score = 0; pipes.length = 0;
+        bird.y = canvas.height / 2; bird.vel = 0;
+        document.getElementById("menu-overlay").style.display = "none";
+        document.getElementById("pause-btn").style.display = "block";
+        document.getElementById("score-text").innerText = "0";
+    }
+
+    function pauseGame() {
+        if(gameState === "PLAYING") {
+            gameState = "PAUSED";
+            document.getElementById("menu-overlay").style.display = "flex";
+            document.getElementById("pause-btn").style.display = "none";
+        }
+    }
+
+    function die() {
+        gameState = "MENU";
+        if(score > playerData.highScore) playerData.highScore = score;
+        playerData.coins += Math.floor(score / 2);
+        syncData(); updateUI();
+        document.getElementById("menu-overlay").style.display = "flex";
+        document.getElementById("pause-btn").style.display = "none";
+    }
+
+    // --- Main Loop ---
+    function update() {
+        if(gameState !== "PLAYING") return;
+
+        bird.vel += bird.grav;
+        bird.y += bird.vel;
+        bird.rot = Math.min(Math.PI/4, Math.max(-Math.PI/4, bird.vel * 0.1));
+
+        if(bird.y + bird.h > canvas.height || bird.y < 0) die();
+
+        if(frame % 100 === 0) {
+            let gap = 170;
+            let top = Math.random() * (canvas.height - gap - 200) + 100;
+            pipes.push({ x: canvas.width, top, gap, passed: false });
         }
 
-        function createPipe() {
-            let top = Math.random() * (canvas.height - pipeConfig.gap - 120) + 40;
-            pipes.push({ x: canvas.width, top: top });
-        }
-
-        function drawBackground() {
-            // Sky
-            let grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
-            grad.addColorStop(0, "#4ec0ca");
-            grad.addColorStop(1, "#dff1f2");
-            ctx.fillStyle = grad;
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Simple Clouds
-            ctx.fillStyle = "rgba(255,255,255,0.7)";
-            ctx.beginPath();
-            ctx.arc(100, 100, 30, 0, Math.PI * 2);
-            ctx.arc(130, 100, 40, 0, Math.PI * 2);
-            ctx.arc(160, 100, 30, 0, Math.PI * 2);
-            ctx.fill();
-        }
-
-        function drawBird() {
-            ctx.save();
-            ctx.translate(bird.x + bird.w/2, bird.y + bird.h/2);
-            // Calculate rotation based on velocity
-            bird.rotation = Math.min(Math.PI / 4, Math.max(-Math.PI / 4, bird.velocity * 0.1));
-            ctx.rotate(bird.rotation);
-            
-            // Body
-            ctx.fillStyle = "#f8e71c";
-            ctx.beginPath();
-            ctx.roundRect(-bird.w/2, -bird.h/2, bird.w, bird.h, 10);
-            ctx.fill();
-            ctx.strokeStyle = "#333";
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            // Eye
-            ctx.fillStyle = "white";
-            ctx.beginPath();
-            ctx.arc(8, -4, 5, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = "black";
-            ctx.beginPath();
-            ctx.arc(10, -4, 2, 0, Math.PI * 2);
-            ctx.fill();
-
-            // Wing
-            ctx.fillStyle = "#e5d400";
-            ctx.fillRect(-12, 0, 15, 10);
-
-            ctx.restore();
-        }
-
-        function drawPipes() {
-            pipes.forEach(p => {
-                // Top Pipe
-                ctx.fillStyle = "#2ecc71";
-                ctx.fillRect(p.x, 0, pipeConfig.width, p.top);
-                ctx.strokeStyle = "#1a8a4b";
-                ctx.strokeRect(p.x, 0, pipeConfig.width, p.top);
-
-                // Bottom Pipe
-                let bottomY = p.top + pipeConfig.gap;
-                ctx.fillRect(p.x, bottomY, pipeConfig.width, canvas.height - bottomY);
-                ctx.strokeRect(p.x, bottomY, pipeConfig.width, canvas.height - bottomY);
-
-                // Pipe Caps
-                ctx.fillStyle = "#27ae60";
-                ctx.fillRect(p.x - 4, p.top - 20, pipeConfig.width + 8, 20);
-                ctx.fillRect(p.x - 4, bottomY, pipeConfig.width + 8, 20);
-            });
-        }
-
-        function update() {
-            if (gameState !== "PLAYING") return;
-
-            bird.velocity += bird.gravity;
-            bird.y += bird.velocity;
-
-            // Collision: Ground or Ceiling
-            if (bird.y + bird.h > canvas.height || bird.y < 0) {
-                endGame();
+        pipes.forEach((p, i) => {
+            p.x -= 3.5;
+            // Collision
+            if(bird.x + bird.w - 5 > p.x && bird.x + 5 < p.x + 60) {
+                if(bird.y + 5 < p.top || bird.y + bird.h - 5 > p.top + p.gap) die();
             }
-
-            // Pipes Logic
-            if (frames % 90 === 0) createPipe();
-
-            pipes.forEach((p, i) => {
-                p.x -= pipeConfig.speed;
-
-                // Collision: Pipes
-                if (bird.x + bird.w > p.x && bird.x < p.x + pipeConfig.width) {
-                    if (bird.y < p.top || bird.y + bird.h > p.top + pipeConfig.gap) {
-                        endGame();
-                    }
-                }
-
-                // Score Increment
-                if (p.x + pipeConfig.width < bird.x && !p.passed) {
-                    score++;
-                    p.passed = true;
-                    uiScore.innerText = score;
-                }
-
-                // Remove off-screen pipes
-                if (p.x + pipeConfig.width < 0) pipes.splice(i, 1);
-            });
-        }
-
-        function endGame() {
-            gameState = "GAMEOVER";
-            if (score > highScore) {
-                highScore = score;
-                localStorage.setItem("flappyHighScore", highScore);
+            // Score
+            if(!p.passed && p.x < bird.x) {
+                score++; p.passed = true;
+                document.getElementById("score-text").innerText = score;
             }
-            uiBest.innerText = highScore;
-            uiOver.style.display = "block";
+            if(p.x < -100) pipes.splice(i, 1);
+        });
+    }
+
+    function draw() {
+        const theme = themes[playerData.activeTheme] || themes.day;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        let grad = ctx.createLinearGradient(0,0,0, canvas.height);
+        grad.addColorStop(0, theme.bg[0]); grad.addColorStop(1, theme.bg[1]);
+        ctx.fillStyle = grad; ctx.fillRect(0,0, canvas.width, canvas.height);
+
+        pipes.forEach(p => {
+            ctx.fillStyle = theme.pipe;
+            ctx.beginPath(); ctx.roundRect(p.x, 0, 60, p.top, [0,0,15,15]); ctx.fill();
+            ctx.beginPath(); ctx.roundRect(p.x, p.top + p.gap, 60, canvas.height, [15,15,0,0]); ctx.fill();
+        });
+
+        const s = skins[playerData.activeSkin];
+        ctx.save();
+        ctx.translate(bird.x + bird.w/2, bird.y + bird.h/2);
+        ctx.rotate(bird.rot);
+        ctx.fillStyle = s.color;
+        ctx.beginPath(); ctx.roundRect(-bird.w/2, -bird.h/2, bird.w, bird.h, 8); ctx.fill();
+        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(8, -5, 4, 0, Math.PI*2); ctx.fill();
+        ctx.restore();
+    }
+
+    function loop() {
+        update(); draw(); frame++;
+        requestAnimationFrame(loop);
+    }
+
+    // --- UI Helpers ---
+    function openSheet(id) { document.getElementById(id).classList.add("active"); }
+    function closeSheet(id) { document.getElementById(id).classList.remove("active"); }
+
+    function updateUI() {
+        document.getElementById("high-score-val").innerText = playerData.highScore;
+        document.getElementById("coin-val-menu").innerText = playerData.coins;
+        document.getElementById("coin-val-shop").innerText = playerData.coins;
+
+        const sGrid = document.getElementById("skin-grid");
+        sGrid.innerHTML = Object.keys(skins).map(k => `
+            <div class="item-card ${playerData.activeSkin === k ? 'selected' : ''}" onclick="buySkin('${k}')">
+                <div style="width:40px; height:30px; background:${skins[k].color}; border-radius:8px; margin:0 auto 10px;"></div>
+                <b>${skins[k].name}</b><br>
+                <small>${playerData.ownedSkins.includes(k) ? 'Owned' : skins[k].price + ' 🪙'}</small>
+            </div>
+        `).join('');
+
+        const tGrid = document.getElementById("theme-grid");
+        tGrid.innerHTML = Object.keys(themes).map(k => `
+            <div class="item-card ${playerData.activeTheme === k ? 'selected' : ''}" onclick="buyTheme('${k}')">
+                <div style="width:100%; height:40px; background:linear-gradient(${themes[k].bg[0]}, ${themes[k].bg[1]}); border-radius:10px; margin-bottom:10px;"></div>
+                <b>${themes[k].name}</b><br>
+                <small>${playerData.ownedThemes.includes(k) ? 'Unlocked' : themes[k].price + ' 🪙'}</small>
+            </div>
+        `).join('');
+    }
+
+    function buySkin(k) {
+        if(playerData.ownedSkins.includes(k)) playerData.activeSkin = k;
+        else if(playerData.coins >= skins[k].price) {
+            playerData.coins -= skins[k].price;
+            playerData.ownedSkins.push(k);
+            playerData.activeSkin = k;
         }
+        updateUI(); syncData();
+    }
 
-        function loop() {
-            drawBackground();
-            drawPipes();
-            drawBird();
-            update();
-            frames++;
-            requestAnimationFrame(loop);
+    function buyTheme(k) {
+        if(playerData.ownedThemes.includes(k)) playerData.activeTheme = k;
+        else if(playerData.coins >= themes[k].price) {
+            playerData.coins -= themes[k].price;
+            playerData.ownedThemes.push(k);
+            playerData.activeTheme = k;
         }
+        updateUI(); syncData();
+    }
 
-        // Input Handling
-        function handleInput(e) {
-            if (e.type === "touchstart") e.preventDefault();
-            
-            if (gameState === "START") {
-                resetGame();
-            } else if (gameState === "PLAYING") {
-                bird.velocity = bird.lift;
-            } else if (gameState === "GAMEOVER") {
-                resetGame();
-            }
+    function toggleSound() { isMuted = document.getElementById("sound-toggle").checked; }
+    
+    function resetGameData() {
+        if(confirm("Are you sure? This will reset all your progress!")) {
+            playerData = { coins: 0, highScore: 0, activeSkin: "classic", ownedSkins: ["classic"], activeTheme: "day", ownedThemes: ["day"] };
+            syncData(); updateUI();
         }
+    }
 
-        window.addEventListener("mousedown", handleInput);
-        window.addEventListener("touchstart", handleInput, { passive: false });
+    function logout() { auth.signOut(); location.reload(); }
 
-        loop();
-    </script>
+    // Input Handling (Fix for Mobile Jump)
+    window.addEventListener("touchstart", (e) => {
+        // Only jump if not clicking on UI buttons
+        if(e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && !e.target.closest('.ios-sheet')) {
+            if(gameState === "PLAYING") bird.vel = bird.jump;
+            if(gameState === "MENU") startGame();
+            e.preventDefault();
+        }
+    }, {passive: false});
+
+    // Keyboard support
+    window.addEventListener("keydown", (e) => {
+        if(e.code === "Space") {
+            if(gameState === "PLAYING") bird.vel = bird.jump;
+            else if(gameState === "MENU") startGame();
+        }
+    });
+
+    // Initial Loading
+    let prog = 0;
+    let inv = setInterval(() => {
+        prog += 10;
+        document.getElementById("progress-bar").style.width = prog + "%";
+        if(prog >= 100) {
+            clearInterval(inv);
+            document.getElementById("loading-screen").style.opacity = 0;
+            setTimeout(() => document.getElementById("loading-screen").style.display = "none", 800);
+        }
+    }, 60);
+
+    loop();
+</script>
 </body>
 </html>
