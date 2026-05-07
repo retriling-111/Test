@@ -3,205 +3,216 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
-    <title>Bird - Ultimate Edition</title>
+    <title>Lay Pyay - Next Gen</title>
     
-    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
 
     <style>
         :root {
-            --ios-blur: blur(40px);
-            --ios-bg: rgba(255, 255, 255, 0.7);
-            --ios-dark-bg: rgba(20, 20, 20, 0.85);
             --ios-accent: #007AFF;
-            --ios-gold: #FFCC00;
+            --ios-bg: rgba(255, 255, 255, 0.85);
+            --liquid-blur: blur(40px);
             --ios-red: #FF3B30;
+            --ios-gold: #FFCC00;
             --ios-green: #34C759;
-            --safe-area-top: env(safe-area-inset-top);
+            --ios-gray: #8e8e93;
         }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; margin: 0; padding: 0; }
-
-        body { 
-            background: #000; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif; 
-            height: 100vh; width: 100vw; overflow: hidden; touch-action: none;
-        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", sans-serif; }
+        body { margin: 0; background: #000; overflow: hidden; touch-action: none; height: 100vh; width: 100vw; }
 
         #loading-screen {
             position: fixed; inset: 0; background: #fff; z-index: 10000;
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            transition: opacity 0.8s ease;
+            transition: opacity 0.5s ease;
+        }
+        .liquid-logo {
+            font-size: 50px; font-weight: 900; letter-spacing: -2px; color: var(--ios-accent);
+            filter: url('#liquid-filter'); animation: pulse 3s infinite;
+        }
+
+        #auth-screen {
+            position: fixed; inset: 0; background: #fff; z-index: 9000;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 30px;
+        }
+        .input-ios {
+            width: 100%; max-width: 320px; padding: 18px; margin-bottom: 12px;
+            border-radius: 18px; border: 1px solid #e5e5e5; background: #f5f5f7; outline: none; font-size: 16px;
         }
 
         #app-container { position: relative; width: 100%; height: 100%; display: none; }
         canvas { display: block; width: 100%; height: 100%; }
 
-        /* HUD */
         #hud {
-            position: absolute; top: calc(20px + var(--safe-area-top)); width: 100%;
-            display: flex; justify-content: space-between; align-items: center; padding: 0 25px; z-index: 10; pointer-events: none;
+            position: absolute; top: env(safe-area-inset-top, 20px); width: 100%; padding: 0 20px;
+            display: flex; justify-content: space-between; pointer-events: none; z-index: 100;
         }
-        .score-pill { 
-            background: rgba(0,0,0,0.3); backdrop-filter: blur(15px); padding: 8px 20px; 
-            border-radius: 30px; color: white; font-weight: 800; font-size: 20px;
+        .pill {
+            background: rgba(0,0,0,0.35); backdrop-filter: blur(20px);
+            padding: 8px 16px; border-radius: 30px; color: white; font-weight: 700;
+            border: 1px solid rgba(255,255,255,0.2); font-size: 14px;
         }
 
-        /* Menu Overlays */
         #menu-overlay {
-            position: absolute; inset: 0; z-index: 500;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            background: rgba(0,0,0,0.2); backdrop-filter: blur(25px);
+            position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+            background: rgba(0,0,0,0.1); backdrop-filter: var(--liquid-blur); z-index: 500;
         }
-        .glass-card {
-            width: 90%; max-width: 380px; padding: 30px; border-radius: 40px;
-            background: var(--ios-bg); text-align: center; box-shadow: 0 20px 50px rgba(0,0,0,0.2);
+        .glass-panel {
+            width: 90%; max-width: 380px; background: var(--ios-bg);
+            border-radius: 45px; padding: 30px; text-align: center;
+            box-shadow: 0 40px 80px rgba(0,0,0,0.2); border: 1px solid rgba(255,255,255,0.5);
         }
 
-        /* Buttons */
-        .btn-ios {
-            width: 100%; padding: 16px; border-radius: 18px; border: none;
-            font-size: 17px; font-weight: 700; margin-bottom: 10px;
-            cursor: pointer; transition: 0.2s;
+        .btn-liquid {
+            width: 100%; padding: 16px; border-radius: 20px; border: none;
+            font-size: 17px; font-weight: 700; margin-bottom: 10px; cursor: pointer;
+            transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex; align-items: center; justify-content: center; gap: 8px;
         }
         .btn-primary { background: var(--ios-accent); color: white; }
         .btn-secondary { background: rgba(0,0,0,0.05); color: #000; }
-        .btn-ios:active { transform: scale(0.96); opacity: 0.8; }
+        .btn-back { background: #000; color: #fff; margin-top: 15px; }
+        .btn-liquid:active { transform: scale(0.95); opacity: 0.8; }
 
-        /* iOS Sheets */
-        .ios-sheet {
+        .sheet {
             position: absolute; bottom: -100%; left: 0; width: 100%; height: 92%;
-            background: var(--ios-bg); backdrop-filter: var(--ios-blur); -webkit-backdrop-filter: var(--ios-blur);
-            border-radius: 40px 40px 0 0; z-index: 1000;
-            transition: bottom 0.5s cubic-bezier(0.19, 1, 0.22, 1);
-            display: flex; flex-direction: column; box-shadow: 0 -10px 30px rgba(0,0,0,0.1);
+            background: var(--ios-bg); backdrop-filter: var(--liquid-blur);
+            border-radius: 40px 40px 0 0; z-index: 1000; transition: 0.5s cubic-bezier(0.19, 1, 0.22, 1);
+            padding: 30px; overflow-y: auto; box-shadow: 0 -10px 40px rgba(0,0,0,0.1);
         }
-        .ios-sheet.active { bottom: 0; }
-        .handle-bar { width: 100%; padding: 15px 0; cursor: pointer; }
-        .handle { width: 40px; height: 5px; background: rgba(0,0,0,0.15); border-radius: 10px; margin: 0 auto; }
-        .sheet-content { flex: 1; overflow-y: auto; padding: 0 25px 40px 25px; }
-
-        /* Grids & Lists */
-        .item-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-        .item-card { 
-            background: #fff; padding: 20px; border-radius: 25px; text-align: center;
-            border: 3px solid transparent; transition: 0.3s;
-        }
-        .item-card.selected { border-color: var(--ios-accent); background: #f0f7ff; }
-
-        .list-group { background: #fff; border-radius: 20px; overflow: hidden; margin-bottom: 20px; text-align: left; }
-        .list-row { padding: 16px 20px; border-bottom: 1px solid #f2f2f7; display: flex; justify-content: space-between; align-items: center; }
-
-        .power-tag { background: var(--ios-green); color: white; padding: 5px 15px; border-radius: 15px; font-size: 12px; font-weight: 700; display: none; }
+        .sheet.active { bottom: 0; }
         
-        @keyframes bounce { from { transform: translateY(0); } to { transform: translateY(-15px); } }
+        .rank-item {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 15px; background: #fff; border-radius: 20px; margin-bottom: 10px;
+        }
+        .day-box { background: white; padding: 12px; border-radius: 18px; font-size: 12px; text-align: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+        .day-box.active { border: 2px solid var(--ios-accent); background: #eef7ff; }
+
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
     </style>
 </head>
 <body>
 
+<svg style="display:none">
+    <defs>
+        <filter id="liquid-filter">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="10" result="blur" />
+            <feColorMatrix in="blur" mode="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 19 -9" result="liquid" />
+        </filter>
+    </defs>
+</svg>
+
 <div id="loading-screen">
-    <div style="width: 60px; height: 45px; background: var(--ios-gold); border-radius: 12px; animation: bounce 0.6s infinite alternate;"></div>
-    <div style="width: 180px; height: 4px; background: #eee; border-radius: 10px; margin-top: 30px; overflow: hidden;">
-        <div id="progress-bar" style="width: 0%; height: 100%; background: var(--ios-accent); transition: 0.2s;"></div>
+    <div class="liquid-logo">Lay Pyay</div>
+    <div style="width:180px; height:6px; background:#eee; border-radius:10px; margin-top:30px; overflow:hidden;">
+        <div id="load-bar" style="width:0%; height:100%; background:var(--ios-accent); transition:0.3s;"></div>
     </div>
 </div>
 
-<div id="auth-screen" style="position: fixed; inset: 0; background: #fff; z-index: 9000; display: none; flex-direction: column; align-items: center; justify-content: center; padding: 40px;">
-    <h1 style="font-size: 38px; font-weight: 900; letter-spacing: -1.5px;">RetriLing ID</h1>
-    <p style="color:#8e8e93; margin-bottom: 40px;">Sign in to sync your progress</p>
-    <input type="email" id="email" style="width: 100%; max-width: 340px; padding: 18px; margin-bottom: 12px; border-radius: 15px; border: 1px solid #ddd; background: #f9f9f9; outline: none;" placeholder="Email">
-    <input type="password" id="password" style="width: 100%; max-width: 340px; padding: 18px; margin-bottom: 25px; border-radius: 15px; border: 1px solid #ddd; background: #f9f9f9; outline: none;" placeholder="Password">
-    <button class="btn-ios btn-primary" onclick="handleAuth('login')">Sign In</button>
-    <button class="btn-ios btn-secondary" onclick="handleAuth('signup')">Create Account</button>
+<div id="auth-screen">
+    <h1 style="font-size:45px; letter-spacing:-2px; margin-bottom:5px;">Lay Pyay</h1>
+    <p style="color:var(--ios-gray); margin-bottom:30px;">Fly into the Next Gen</p>
+    <input type="email" id="email" class="input-ios" placeholder="Email">
+    <input type="password" id="pass" class="input-ios" placeholder="Password">
+    <button class="btn-liquid btn-primary" onclick="authAction('login')">Sign In</button>
+    <button class="btn-liquid btn-secondary" onclick="authAction('signup')">Create Account</button>
 </div>
 
 <div id="app-container">
     <div id="hud">
-        <div class="score-pill">Score: <span id="score-text">0</span></div>
-        <div style="pointer-events: auto; display: flex; gap: 10px;">
-            <button id="pause-btn" onclick="pauseGame()" style="display:none; background:rgba(255,255,255,0.3); border:none; padding: 12px; border-radius: 20px; backdrop-filter: blur(10px); cursor: pointer;">⏸️</button>
-            <button onclick="openSheet('shop-sheet')" style="background:rgba(255,255,255,0.3); border:none; padding: 12px; border-radius: 20px; backdrop-filter: blur(10px); cursor: pointer;">👕</button>
-        </div>
+        <div class="pill">Score: <span id="score-val">0</span></div>
+        <div class="pill" style="color:var(--ios-gold)">🪙 <span id="coin-hud">0</span></div>
     </div>
 
     <canvas id="gameCanvas"></canvas>
 
-    <!-- Main Menu -->
     <div id="menu-overlay">
-        <div class="glass-card">
-            <h1 style="font-size: 40px; font-weight: 900; letter-spacing: -2px; margin-bottom: 5px;">RetriLing</h1>
-            <div style="display: flex; justify-content: space-around; margin-bottom: 20px;">
-                <div><small style="color:#8e8e93">Best</small><br><b id="high-score-val">0</b></div>
-                <div><small style="color:#8e8e93">Coins</small><br><b id="coin-val-menu" style="color:var(--ios-gold)">0</b></div>
+        <div class="glass-panel">
+            <h2 id="lp-id-display" style="font-size:12px; color:var(--ios-gray); margin-bottom:10px; text-transform: uppercase;">ID: Loading...</h2>
+            <h1 class="liquid-logo">Lay Pyay</h1>
+            <div style="display:flex; justify-content:space-around; margin:25px 0;">
+                <div><small style="color:var(--ios-gray)">BEST</small><br><b id="best-val" style="font-size:28px;">0</b></div>
+                <div><small style="color:var(--ios-gray)">COINS</small><br><b id="coin-val" style="font-size:28px; color:var(--ios-gold);">0</b></div>
             </div>
-            <button class="btn-ios btn-primary" onclick="startGame()">Start Game</button>
-            <button class="btn-ios btn-secondary" onclick="openSheet('theme-sheet')">Environments</button>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                <button class="btn-ios btn-secondary" onclick="openSheet('about-sheet')">About</button>
-                <button class="btn-ios btn-secondary" onclick="openSheet('settings-sheet')">Settings</button>
+            <button class="btn-liquid btn-primary" onclick="startGame()">Start Flight</button>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px;">
+                <button class="btn-liquid btn-secondary" onclick="openSheet('shop')">Skins</button>
+                <button class="btn-liquid btn-secondary" onclick="openSheet('theme')">Themes</button>
+                <button class="btn-liquid btn-secondary" onclick="openSheet('leaderboard')">Ranking</button>
+                <button class="btn-liquid btn-secondary" onclick="openSheet('reward')">Daily</button>
             </div>
+            <button id="admin-entry" class="btn-liquid" style="display:none; background:#5856D6; color:#fff;" onclick="openSheet('admin')">Admin Console</button>
+            <button class="btn-liquid btn-secondary" style="margin-top:10px;" onclick="openSheet('about')">About</button>
+            <button class="btn-liquid" style="color:var(--ios-red); background:none; font-size:14px; margin-top:10px;" onclick="logout()">Sign Out</button>
         </div>
     </div>
 
-    <!-- Shop Sheet -->
-    <div id="shop-sheet" class="ios-sheet">
-        <div class="handle-bar" onclick="closeSheet('shop-sheet')"><div class="handle"></div></div>
-        <div class="sheet-content">
-            <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 10px;">Bird Skins</h2>
-            <p style="margin-bottom: 20px; font-weight: 700;">Balance: <span id="coin-val-shop" style="color:var(--ios-gold)">0</span> 🪙</p>
-            <div class="item-grid" id="skin-grid"></div>
-        </div>
+    <div id="leaderboard" class="sheet">
+        <h2 style="font-size:32px; font-weight:900; margin-bottom:20px;">Leaderboard</h2>
+        <div id="leaderboard-list"></div>
+        <button class="btn-liquid btn-back" onclick="closeSheet('leaderboard')">Back</button>
     </div>
 
-    <!-- Theme Sheet -->
-    <div id="theme-sheet" class="ios-sheet">
-        <div class="handle-bar" onclick="closeSheet('theme-sheet')"><div class="handle"></div></div>
-        <div class="sheet-content">
-            <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 20px;">Themes</h2>
-            <div class="item-grid" id="theme-grid"></div>
-        </div>
+    <div id="shop" class="sheet">
+        <h2 style="font-size:32px; font-weight:900; margin-bottom:10px;">Bird Skins</h2>
+        <p style="color:var(--ios-gray); margin-bottom:20px;">Unlock 300 unique characters</p>
+        <div id="skin-list" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;"></div>
+        <button class="btn-liquid btn-back" onclick="closeSheet('shop')">Back</button>
     </div>
 
-    <!-- About Sheet -->
-    <div id="about-sheet" class="ios-sheet">
-        <div class="handle-bar" onclick="closeSheet('about-sheet')"><div class="handle"></div></div>
-        <div class="sheet-content">
-            <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 15px;">About Game</h2>
-            <div class="list-group">
-                <div class="list-row"><span>Version</span><span style="color:#8e8e93">2.0.0 Ultimate</span></div>
-                <div class="list-row"><span>Developer</span><span style="color:#8e8e93">Bird (Khant)</span></div>
-            </div>
-            <p style="color:#666; line-height: 1.6; margin-bottom: 20px;">This is a next-gen Flappy Bird clone with cloud sync, shop system, and iOS-style aesthetics.</p>
-            <button class="btn-ios btn-primary" onclick="window.location.href='mailto:support@bird.com'">Contact Support</button>
-        </div>
+    <div id="theme" class="sheet">
+        <h2 style="font-size:32px; font-weight:900; margin-bottom:20px;">Environments</h2>
+        <div id="theme-list" style="display:grid; grid-template-columns:1fr 1fr; gap:15px;"></div>
+        <button class="btn-liquid btn-back" onclick="closeSheet('theme')">Back</button>
     </div>
 
-    <!-- Settings Sheet -->
-    <div id="settings-sheet" class="ios-sheet">
-        <div class="handle-bar" onclick="closeSheet('settings-sheet')"><div class="handle"></div></div>
-        <div class="sheet-content">
-            <h2 style="font-size: 28px; font-weight: 800; margin-bottom: 20px;">Settings</h2>
-            <div class="list-group">
-                <div class="list-row">
-                    <span>Mute Sound</span>
-                    <input type="checkbox" id="sound-toggle" onchange="toggleSound()">
-                </div>
-                <div class="list-row" style="color:var(--ios-red)" onclick="resetGameData()">
-                    <span>Reset Game Data</span>
-                    <span>⚠️</span>
-                </div>
-            </div>
-            <div class="list-group">
-                <div class="list-row"><span id="user-email-display" style="font-size: 14px; color:#8e8e93">Guest</span></div>
-                <div class="list-row" onclick="logout()" style="color:var(--ios-red)"><span>Sign Out</span></div>
-            </div>
+    <div id="reward" class="sheet">
+        <h2 style="font-size:32px; font-weight:900; margin-bottom:10px;">Daily Bonus</h2>
+        <div class="reward-row" id="reward-grid" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin: 20px 0;"></div>
+        <button id="claim-btn" class="btn-liquid btn-primary" onclick="claimReward()">Claim Reward</button>
+        <button class="btn-liquid btn-back" onclick="closeSheet('reward')">Back</button>
+    </div>
+
+    <div id="admin" class="sheet">
+        <h2 style="font-size:32px; font-weight:900; margin-bottom:20px;">Admin</h2>
+        <input type="text" class="input-ios" id="user-search" placeholder="Search LP-ID..." oninput="searchUser()" style="max-width:none;">
+        <div id="admin-user-list"></div>
+        <button class="btn-liquid btn-back" onclick="closeSheet('admin')">Back</button>
+    </div>
+
+    <div id="about" class="sheet">
+        <h2 style="font-size:32px; font-weight:900;">About</h2>
+        <div style="text-align:left; background:#fff; padding:25px; border-radius:30px; margin-top:20px; box-shadow: 0 10px 30px rgba(0,0,0,0.05);">
+            <p><b>Version:</b> 2.0.0 (Next Gen)</p>
+            <p><b>Developer:</b> Khant</p>
+            <p><b>Tech:</b> Canvas, Firebase, Liquid CSS</p>
+            <hr style="margin:15px 0; border:none; border-top:1px solid #eee;">
+            <a href=""><b>Telegram:</b> @Retriling</a>
+            <p><b>GitHub:</b> retriling-111</p>
         </div>
+        <button class="btn-liquid btn-back" onclick="closeSheet('about')">Back</button>
     </div>
 </div>
 
 <script>
-    // --- Firebase & State ---
+    // --- Audio System ---
+    let audioCtx;
+    function playSfx(f, t, d, v=0.08) {
+        try {
+            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.type = t; o.frequency.setValueAtTime(f, audioCtx.currentTime);
+            g.gain.setValueAtTime(v, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + d);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + d);
+        } catch(e) {}
+    }
+
+    // --- Firebase Setup ---
     const firebaseConfig = {
         apiKey: "AIzaSyD-Q5i5pWH2RW43FEODNepFKwX3grDvkgc",
         authDomain: "gameforme-5caaa.firebaseapp.com",
@@ -210,189 +221,312 @@
         messagingSenderId: "543947662630",
         appId: "1:543947662630:web:f98681238db1f86d528de7"
     };
-
     firebase.initializeApp(firebaseConfig);
-    const auth = firebase.auth();
-    const db = firebase.firestore();
+    const auth = firebase.auth(), db = firebase.firestore();
 
-    let gameState = "MENU"; // MENU, PLAYING, PAUSED
-    let score = 0, frame = 0, isMuted = false;
+    // --- Game Logic & Data ---
+    let gameState = "MENU", frame = 0, score = 0;
     let playerData = {
-        coins: 0, highScore: 0,
-        activeSkin: "classic", ownedSkins: ["classic"],
-        activeTheme: "day", ownedThemes: ["day"]
+        lpId: "", coins: 0, best: 0, activeSkin: "S01", ownedSkins: ["S01"],
+        activeTheme: "T01", ownedThemes: ["T01"], lastReward: 0, dayCount: 0
     };
 
-    const skins = {
-        classic: { name: "Classic", color: "#FFCC00", price: 0 },
-        midnight: { name: "Midnight", color: "#1C1C1E", price: 200 },
-        neon: { name: "Neon", color: "#32ADE6", price: 500 },
-        ruby: { name: "Ruby", color: "#FF2D55", price: 1000 },
-        gold: { name: "Gold", color: "#FFD700", price: 5000 }
+  const skins = {
+    // --- Basic Skins (S01 - S05) ---
+    "S01": { name: "Default Bird", color: "#FFCC00", price: 0, fx: false },
+    "S02": { name: "Blue Sky", color: "#007AFF", price: 500, fx: false },
+    "S03": { name: "Crimson", color: "#FF3B30", price: 1000, fx: false },
+    "S04": { name: "Forest", color: "#34C759", price: 1500, fx: false },
+    "S05": { name: "Purple Rain", color: "#AF52DE", price: 2000, fx: false },
+
+    // --- Special FX Skins (S06 - S50) ---
+    "S06": { name: "Night Fury", color: "#1C1C1E", price: 3000, fx: true },
+    "S07": { name: "Golden King", color: "#FFD700", price: 5000, fx: true },
+    "S08": { name: "Cyber Neon", color: "#00FFFF", price: 7000, fx: true },
+    "S09": { name: "Ruby Eye", color: "#9B111E", price: 9000, fx: true },
+    "S10": { name: "Ghostly", color: "#F8F8F8", price: 12000, fx: true },
+    "S11": { name: "Toxic Sludge", color: "#ADFF2F", price: 15000, fx: true },
+    "S12": { name: "Volcanic Rock", color: "#4B0000", price: 18000, fx: true },
+    "S13": { name: "Deep Sea Blue", color: "#000080", price: 21000, fx: true },
+    "S14": { name: "Emerald Glint", color: "#50C878", price: 24000, fx: true },
+    "S15": { name: "Pink Candy", color: "#FF69B4", price: 27000, fx: true },
+    "S16": { name: "Steel Wing", color: "#708090", price: 30000, fx: true },
+    "S17": { name: "Sunset Glow", color: "#FF4500", price: 35000, fx: true },
+    "S18": { name: "Icy Chill", color: "#AFEEEE", price: 40000, fx: true },
+    "S19": { name: "Midnight Purple", color: "#483D8B", price: 45000, fx: true },
+    "S20": { name: "Bronze Warrior", color: "#CD7F32", price: 50000, fx: true }
+};
+
+// --- Generating Skins S21 to S300 Automatically ---
+// (Rarity အလိုက် အရောင်နဲ့ ဈေးနှုန်းတွေကို တွက်ချက်ထားတာပါ)
+for (let i = 21; i <= 300; i++) {
+    let skinID = "S" + i.toString().padStart(2, '0');
+    let basePrice = i * 2500; // ဈေးနှုန်းကို တဖြည်းဖြည်း မြှင့်သွားမယ်
+    
+    // အရောင်တွေကို စုံနေအောင် Random Logic လေးသုံးထားပါတယ်
+    let hue = (i * 137.5) % 360; // Golden ratio scatter
+    let color = `hsl(${hue}, 70%, 50%)`; 
+    
+    // နာမည်လေးတွေကိုလည်း Dynamic ဖြစ်အောင် ပေးထားပါတယ်
+    let prefixes = ["Super", "Ultra", "Mega", "Hyper", "Dark", "Holy", "Ancient", "Future", "Cosmic", "Shadow", "Electric", "Mystic", "Iron", "Oceanic", "Solar", "Lunar", "Radiant", "Blazing"];
+    let suffixes = ["Bird", "Wing", "Falcon", "Eagle", "Soul", "Spirit", "Guardian", "Hunter", "Legend", "Master", "Shine", "Storm", "Flare", "Void"];
+    let name = prefixes[i % prefixes.length] + " " + suffixes[i % suffixes.length];
+
+    skins[skinID] = {
+        name: name,
+        color: color,
+        price: basePrice,
+        fx: true // S06 နောက်ပိုင်း အားလုံး FX ပါမယ်
     };
+}
+
+// Check the high tier skins
+skins["S300"] = { name: "The Infinite One", color: "#FFFFFF", price: 10000000, fx: true };
+
+console.log("Total Skins Generated: ", Object.keys(skins).length);
 
     const themes = {
-        day: { name: "Daylight", bg: ["#74ebd5", "#acb6e5"], pipe: "#2ecc71", price: 0 },
-        space: { name: "Space", bg: ["#0f0c29", "#302b63"], pipe: "#5856D6", price: 500 },
-        cyberpunk: { name: "Neon", bg: ["#200122", "#6f0000"], pipe: "#FF2D55", price: 1000 }
-    };
+    // Standard (Classic) - T01 to T40
+    "T01": { name: "Default", bg: ["#74ebd5", "#acb6e5"], pipe: "#34c759", price: 0, style: "classic" },
+    "T02": { name: "Midnight", bg: ["#232526", "#414345"], pipe: "#007AFF", price: 800, style: "neon" },
+    "T03": { name: "Sakura", bg: ["#ffeef8", "#ffc0cb"], pipe: "#ff2d55", price: 1500, style: "soft" },
+    "T04": { name: "Cyber", bg: ["#000046", "#1cb5e0"], pipe: "#ff00ff", price: 5000, style: "neon" },
+    "T05": { name: "Ocean", bg: ["#2b5876", "#4e4376"], pipe: "#00d2ff", price: 500, style: "classic" },
+    "T06": { name: "Forest", bg: ["#134e5e", "#71b280"], pipe: "#2ecc71", price: 600, style: "classic" },
+    "T07": { name: "Sunset", bg: ["#f46036", "#5b2a86"], pipe: "#ff9f1c", price: 750, style: "soft" },
+    "T08": { name: "Slate", bg: ["#2c3e50", "#34495e"], pipe: "#95a5a6", price: 400, style: "classic" },
+    "T09": { name: "Candy", bg: ["#ee9ca7", "#ffdde1"], pipe: "#ff4d6d", price: 900, style: "soft" },
+    "T10": { name: "Lemonade", bg: ["#f7971e", "#ffd200"], pipe: "#ffffff", price: 850, style: "classic" },
+    "T11": { name: "Deep Sea", bg: ["#061161", "#780206"], pipe: "#00f2fe", price: 1100, style: "neon" },
+    "T12": { name: "Lavender", bg: ["#a18cd1", "#fbc2eb"], pipe: "#8e44ad", price: 950, style: "soft" },
+    "T13": { name: "Minty", bg: ["#00b09b", "#96c93d"], pipe: "#27ae60", price: 1000, style: "classic" },
+    "T14": { name: "Volcano", bg: ["#434343", "#000000"], pipe: "#ff4b2b", price: 1300, style: "neon" },
+    "T15": { name: "Frost", bg: ["#00c6ff", "#0072ff"], pipe: "#e0ffff", price: 1200, style: "glass" },
+    "T16": { name: "Desert", bg: ["#edc0bf", "#c4caaf"], pipe: "#d4a373", price: 800, style: "classic" },
+    "T17": { name: "Space", bg: ["#0f0c29", "#302b63"], pipe: "#24243e", price: 1400, style: "neon" },
+    "T18": { name: "Vaporwave", bg: ["#ff00cc", "#333399"], pipe: "#00ffcc", price: 2000, style: "neon" },
+    "T19": { name: "Autumn", bg: ["#dad299", "#b066fe"], pipe: "#e67e22", price: 1100, style: "classic" },
+    "T20": { name: "Royal", bg: ["#141e30", "#243b55"], pipe: "#f1c40f", price: 2500, style: "glass" },
+    "T21": { name: "Nordic", bg: ["#8e9eab", "#eef2f3"], pipe: "#34495e", price: 1600, style: "glass" },
+    "T22": { name: "Juicy", bg: ["#ffb347", "#ffcc33"], pipe: "#e74c3c", price: 1050, style: "classic" },
+    "T23": { name: "Ghost", bg: ["#283048", "#859398"], pipe: "#ffffff", price: 1800, style: "glass" },
+    "T24": { name: "Retro", bg: ["#3f2b96", "#a8c0ff"], pipe: "#f39c12", price: 2200, style: "retro" },
+    "T25": { name: "Boreal", bg: ["#200122", "#6f0000"], pipe: "#1abc9c", price: 2300, style: "neon" },
+    "T26": { name: "Toxic", bg: ["#000000", "#0f9b0f"], pipe: "#39ff14", price: 2100, style: "neon" },
+    "T27": { name: "Berry", bg: ["#4b1248", "#f0c27b"], pipe: "#9b59b6", price: 1700, style: "classic" },
+    "T28": { name: "Clay", bg: ["#603813", "#b29f94"], pipe: "#8b4513", price: 900, style: "classic" },
+    "T29": { name: "Steel", bg: ["#457b9d", "#1d3557"], pipe: "#f1faee", price: 1950, style: "glass" },
+    "T30": { name: "Peachy", bg: ["#ed4264", "#ffedbc"], pipe: "#ff7675", price: 1400, style: "soft" },
+    "T31": { name: "Copper", bg: ["#b79891", "#94716b"], pipe: "#d35400", price: 2600, style: "retro" },
+    "T32": { name: "Indigo", bg: ["#36d1dc", "#5b86e5"], pipe: "#2980b9", price: 1550, style: "classic" },
+    "T33": { name: "Gravel", bg: ["#304352", "#d7d2cc"], pipe: "#2c3e50", price: 1100, style: "classic" },
+    "T34": { name: "Electric", bg: ["#4776e6", "#8e54e9"], pipe: "#00ffff", price: 2800, style: "neon" },
+    "T35": { name: "Organic", bg: ["#56ab2f", "#a8e063"], pipe: "#1b5e20", price: 1300, style: "classic" },
+    "T36": { name: "Mocha", bg: ["#3c3b3f", "#605c3c"], pipe: "#795548", price: 1200, style: "classic" },
+    "T37": { name: "Horizon", bg: ["#003973", "#e5e5be"], pipe: "#5d6d7e", price: 2400, style: "classic" },
+    "T38": { name: "Bubblegum", bg: ["#ff9a9e", "#fecfef"], pipe: "#fd79a8", price: 1850, style: "soft" },
+    "T39": { name: "Deep Space", bg: ["#000000", "#434343"], pipe: "#9b59b6", price: 3000, style: "neon" },
+    "T40": { name: "Zest", bg: ["#f8ff00", "#3ad59f"], pipe: "#2ecc71", price: 1450, style: "classic" },
 
-    // --- Core Engine ---
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-    const bird = { x: 50, y: 0, w: 34, h: 26, vel: 0, grav: 0.25, jump: -5.5, rot: 0 };
-    const pipes = [];
+    // Premium - T41 to T70
+    "T41": { name: "Skyline", bg: ["#1e3c72", "#2a5298"], pipe: "#f3f3f3", price: 2000, style: "glass" },
+    "T42": { name: "Wine", bg: ["#511232", "#af2d2d"], pipe: "#800020", price: 2700, style: "classic" },
+    "T43": { name: "Misty", bg: ["#bdc3c7", "#2c3e50"], pipe: "#ecf0f1", price: 1500, style: "glass" },
+    "T44": { name: "Sunshine", bg: ["#fceabb", "#f8b500"], pipe: "#ff5722", price: 1350, style: "soft" },
+    "T45": { name: "Mars", bg: ["#5d4157", "#a8caba"], pipe: "#e74c3c", price: 3200, style: "retro" },
+    "T46": { name: "Neon Night", bg: ["#000000", "#000000"], pipe: "#39ff14", price: 3500, style: "neon" },
+    "T47": { name: "Coral", bg: ["#ff9966", "#ff5e62"], pipe: "#ff7f50", price: 2100, style: "soft" },
+    "T48": { name: "Obsidian", bg: ["#232526", "#414345"], pipe: "#111111", price: 3800, style: "neon" },
+    "T49": { name: "Orchid", bg: ["#c04848", "#480048"], pipe: "#da70d6", price: 2600, style: "soft" },
+    "T50": { name: "Emerald", bg: ["#02aab0", "#00cdac"], pipe: "#50c878", price: 4000, style: "glass" },
+    "T51": { name: "Graphite", bg: ["#485563", "#29323c"], pipe: "#ffffff", price: 2300, style: "classic" },
+    "T52": { name: "Blossom", bg: ["#f093fb", "#f5576c"], pipe: "#ffffff", price: 2800, style: "soft" },
+    "T53": { name: "Wave", bg: ["#48c6ef", "#6f86d6"], pipe: "#00ced1", price: 2500, style: "glass" },
+    "T54": { name: "Sand", bg: ["#e6dada", "#274046"], pipe: "#f4a460", price: 1600, style: "retro" },
+    "T55": { name: "Pulse", bg: ["#ff0844", "#ffb199"], pipe: "#c0392b", price: 3300, style: "neon" },
+    "T56": { name: "Gloom", bg: ["#191919", "#202020"], pipe: "#444444", price: 1900, style: "classic" },
+    "T57": { name: "Citrus", bg: ["#fdc830", "#f37335"], pipe: "#ffeb3b", price: 2200, style: "soft" },
+    "T58": { name: "Arctic", bg: ["#e6e9f0", "#eef1f5"], pipe: "#81d4fa", price: 2450, style: "glass" },
+    "T59": { name: "Ruby", bg: ["#cb2d3e", "#ef473a"], pipe: "#9b111e", price: 4200, style: "glass" },
+    "T60": { name: "Plum", bg: ["#5c258d", "#4389a2"], pipe: "#dda0dd", price: 3100, style: "soft" },
+    "T61": { name: "Jungle", bg: ["#11998e", "#38ef7d"], pipe: "#006400", price: 2900, style: "classic" },
+    "T62": { name: "Metal", bg: ["#bdc3c7", "#2c3e50"], pipe: "#7f8c8d", price: 3600, style: "retro" },
+    "T63": { name: "Fire", bg: ["#ed1c24", "#fcee21"], pipe: "#ff4500", price: 4500, style: "neon" },
+    "T64": { name: "Twilight", bg: ["#000428", "#004e92"], pipe: "#f8f8ff", price: 4800, style: "glass" },
+    "T65": { name: "Pastel", bg: ["#74ebd5", "#acb6e5"], pipe: "#ffffff", price: 1200, style: "soft" },
+    "T66": { name: "Velvet", bg: ["#310d20", "#b21f1f"], pipe: "#d4af37", price: 5000, style: "glass" },
+    "T67": { name: "Storm", bg: ["#4b6cb7", "#182848"], pipe: "#607d8b", price: 4300, style: "classic" },
+    "T68": { name: "Candy Cane", bg: ["#ffffff", "#ff0000"], pipe: "#00ff00", price: 3400, style: "retro" },
+    "T69": { name: "Breeze", bg: ["#89f7fe", "#66a6ff"], pipe: "#ffffff", price: 2200, style: "soft" },
+    "T70": { name: "Coal", bg: ["#000000", "#434343"], pipe: "#ff0000", price: 4600, style: "neon" },
 
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        bird.x = canvas.width / 4;
-    }
-    window.addEventListener('resize', resize);
-    resize();
+    // Legendary - T71 to T100
+    "T71": { name: "Golden Aura", bg: ["#bf953f", "#fcf6ba"], pipe: "#ffd700", price: 10000, style: "legendary" },
+    "T72": { name: "Diamond Mist", bg: ["#e0eafc", "#cfdef3"], pipe: "#b9f2ff", price: 12000, style: "legendary" },
+    "T73": { name: "Abyss", bg: ["#000000", "#000000"], pipe: "#3d3d3d", price: 15000, style: "legendary" },
+    "T74": { name: "Stardust", bg: ["#1d1d1d", "#202020"], pipe: "#ff00ff", price: 18000, style: "legendary" },
+    "T75": { name: "Phoenix", bg: ["#f83600", "#f9d423"], pipe: "#ff0000", price: 20000, style: "legendary" },
+    "T76": { name: "Aether", bg: ["#1e3c72", "#2a5298"], pipe: "#00ffff", price: 22000, style: "legendary" },
+    "T77": { name: "Solar Flare", bg: ["#ff512f", "#dd2476"], pipe: "#ffff00", price: 25000, style: "legendary" },
+    "T78": { name: "Ender", bg: ["#000000", "#434343"], pipe: "#a020f0", price: 28000, style: "legendary" },
+    "T79": { name: "Platinum", bg: ["#d7d2cc", "#304352"], pipe: "#e5e4e2", price: 30000, style: "legendary" },
+    "T80": { name: "Supernova", bg: ["#ff00cc", "#333399"], pipe: "#ffffff", price: 35000, style: "legendary" },
+    "T81": { name: "Void Walker", bg: ["#020024", "#090979"], pipe: "#00d4ff", price: 40000, style: "legendary" },
+    "T82": { name: "King Midas", bg: ["#8a642a", "#d1b464"], pipe: "#ffd700", price: 45000, style: "legendary" },
+    "T83": { name: "Dragon Breath", bg: ["#6a0572", "#af0069"], pipe: "#ff4e00", price: 50000, style: "legendary" },
+    "T84": { name: "Glitch", bg: ["#000000", "#ff0000"], pipe: "#0000ff", price: 55000, style: "legendary" },
+    "T85": { name: "Quantum", bg: ["#111111", "#1a1a1a"], pipe: "#00ff99", price: 60000, style: "legendary" },
+    "T86": { name: "Holy Light", bg: ["#ffffff", "#f1f2b5"], pipe: "#ffd700", price: 65000, style: "legendary" },
+    "T87": { name: "Cyberpunk Elite", bg: ["#fbeeac", "#000000"], pipe: "#f3ec1a", price: 70000, style: "legendary" },
+    "T88": { name: "Nebula", bg: ["#41295a", "#2f0743"], pipe: "#ff0080", price: 75000, style: "legendary" },
+    "T89": { name: "Iridium", bg: ["#3f4c6b", "#606c88"], pipe: "#00fbff", price: 80000, style: "legendary" },
+    "T90": { name: "Eclipse", bg: ["#000000", "#141e30"], pipe: "#ffffff", price: 85000, style: "legendary" },
+    "T91": { name: "Biolume", bg: ["#000428", "#004e92"], pipe: "#00ffcc", price: 90000, style: "legendary" },
+    "T92": { name: "Prism", bg: ["#833ab4", "#fd1d1d"], pipe: "#fcb045", price: 95000, style: "legendary" },
+    "T93": { name: "Aurora", bg: ["#000000", "#000000"], pipe: "#00ff00", price: 100000, style: "legendary" },
+    "T94": { name: "Singularity", bg: ["#000000", "#111111"], pipe: "#ffffff", price: 120000, style: "legendary" },
+    "T95": { name: "Chrono", bg: ["#232526", "#414345"], pipe: "#ffd700", price: 150000, style: "legendary" },
+    "T96": { name: "Black Hole", bg: ["#000000", "#000000"], pipe: "#ffffff", price: 200000, style: "legendary" },
+    "T97": { name: "Titanium", bg: ["#283048", "#859398"], pipe: "#b0bec5", price: 250000, style: "legendary" },
+    "T98": { name: "Mythic Ruby", bg: ["#800000", "#000000"], pipe: "#ff0000", price: 500000, style: "legendary" },
+    "T99": { name: "Celestial", bg: ["#0f2027", "#203a43"], pipe: "#ffffff", price: 750000, style: "legendary" },
+    "T100": { name: "Infinity", bg: ["#000000", "#000000"], pipe: "#ffd700", price: 1000000, style: "legendary" },
 
-    // --- Auth Logic ---
-    auth.onAuthStateChanged(async (user) => {
-        if (user) {
-            document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('app-container').style.display = 'block';
-            document.getElementById('user-email-display').innerText = user.email;
-            const doc = await db.collection('players').doc(user.uid).get();
-            if (doc.exists) playerData = { ...playerData, ...doc.data() };
-            else await db.collection('players').doc(user.uid).set(playerData);
+    // Godly / Ultimate - T101 to T150
+    "T101": { name: "Neon Jungle", bg: ["#004d40", "#000000"], pipe: "#39ff14", price: 1200000, style: "godly" },
+    "T102": { name: "Frozen Flame", bg: ["#00c6ff", "#f83600"], pipe: "#ffffff", price: 1350000, style: "godly" },
+    "T103": { name: "Viking Oak", bg: ["#3e2723", "#1b1102"], pipe: "#d4af37", price: 1400000, style: "retro" },
+    "T104": { name: "Deep Amethyst", bg: ["#4b0082", "#000000"], pipe: "#9932cc", price: 1500000, style: "godly" },
+    "T105": { name: "Solar Wind", bg: ["#f7971e", "#ffd200"], pipe: "#ff4500", price: 1650000, style: "godly" },
+    "T106": { name: "Atlantis", bg: ["#1e3c72", "#2a5298"], pipe: "#00e5ff", price: 1800000, style: "glass" },
+    "T107": { name: "Steam Punk", bg: ["#2c1e14", "#5d4037"], pipe: "#cd7f32", price: 1950000, style: "retro" },
+    "T108": { name: "Radioactive", bg: ["#000000", "#1a1a1a"], pipe: "#ccff00", price: 2100000, style: "neon" },
+    "T109": { name: "Cherry Blast", bg: ["#800020", "#ff0000"], pipe: "#ffb7c5", price: 2250000, style: "soft" },
+    "T110": { name: "Cyber Tokyo", bg: ["#120458", "#ff0055"], pipe: "#00fbff", price: 2500000, style: "neon" },
+    "T111": { name: "Marble Statuette", bg: ["#e0e0e0", "#8e8e8e"], pipe: "#ffffff", price: 2700000, style: "glass" },
+    "T112": { name: "Supernova Red", bg: ["#420000", "#ff0000"], pipe: "#ffd700", price: 3000000, style: "godly" },
+    "T113": { name: "Oceanic Abyss", bg: ["#000428", "#004e92"], pipe: "#1e88e5", price: 3200000, style: "glass" },
+    "T114": { name: "Golden Gate", bg: ["#ff512f", "#dd2476"], pipe: "#ffd700", price: 3500000, style: "legendary" },
+    "T115": { name: "Techno Violet", bg: ["#1a0a2e", "#4a148c"], pipe: "#00e5ff", price: 3800000, style: "neon" },
+    "T116": { name: "Sandstorm", bg: ["#c2b280", "#3e2723"], pipe: "#f4a460", price: 4000000, style: "retro" },
+    "T117": { name: "Liquid Mercury", bg: ["#232526", "#414345"], pipe: "#e0e0e0", price: 4500000, style: "glass" },
+    "T118": { name: "Forest Spirit", bg: ["#0b3d2e", "#1b5e20"], pipe: "#c8e6c9", price: 5000000, style: "soft" },
+    "T119": { name: "Electric Blue", bg: ["#000046", "#1cb5e0"], pipe: "#ffffff", price: 5500000, style: "neon" },
+    "T120": { name: "Magma Core", bg: ["#210101", "#4b0101"], pipe: "#ff9100", price: 6000000, style: "godly" },
+    "T121": { name: "Diamond Dust", bg: ["#ffffff", "#cfd8dc"], pipe: "#b2ebf2", price: 6500000, style: "glass" },
+    "T122": { name: "Hellfire", bg: ["#000000", "#310000"], pipe: "#ff2400", price: 7000000, style: "godly" },
+    "T123": { name: "Starship", bg: ["#203a43", "#2c5364"], pipe: "#90a4ae", price: 7500000, style: "retro" },
+    "T124": { name: "Lava Lamp", bg: ["#ff4e50", "#f9d423"], pipe: "#ff00ff", price: 8000000, style: "soft" },
+    "T125": { name: "Shadow Realm", bg: ["#000000", "#121212"], pipe: "#313131", price: 9000000, style: "godly" },
+    "T126": { name: "Rose Gold", bg: ["#e5b2ca", "#702344"], pipe: "#b76e79", price: 10000000, style: "glass" },
+    "T127": { name: "Poison Ivy", bg: ["#1b5e20", "#000000"], pipe: "#76ff03", price: 12000000, style: "neon" },
+    "T128": { name: "Ancient Rune", bg: ["#263238", "#000000"], pipe: "#00bfa5", price: 15000000, style: "retro" },
+    "T129": { name: "Solaris Elite", bg: ["#f57c00", "#ffeb3b"], pipe: "#ffffff", price: 18000000, style: "godly" },
+    "T130": { name: "Dark Matter", bg: ["#000000", "#080808"], pipe: "#6a1b9a", price: 20000000, style: "godly" },
+    "T131": { name: "Ares War", bg: ["#4a0000", "#000000"], pipe: "#ff0000", price: 30000000, style: "godly" },
+    "T132": { name: "Zeus Bolt", bg: ["#000044", "#0000ff"], pipe: "#ffff00", price: 40000000, style: "godly" },
+    "T133": { name: "Hades Gate", bg: ["#1a1a1a", "#000000"], pipe: "#ff4e00", price: 50000000, style: "godly" },
+    "T134": { name: "Poseidon Wake", bg: ["#002171", "#0d47a1"], pipe: "#80d8ff", price: 60000000, style: "godly" },
+    "T135": { name: "Obsidian King", bg: ["#000000", "#1a1a1a"], pipe: "#212121", price: 75000000, style: "godly" },
+    "T136": { name: "Emerald God", bg: ["#003300", "#000000"], pipe: "#00ff00", price: 90000000, style: "godly" },
+    "T137": { name: "White Dwarf", bg: ["#ffffff", "#e0e0e0"], pipe: "#000000", price: 100000000, style: "godly" },
+    "T138": { name: "Cosmic String", bg: ["#000000", "#000000"], pipe: "cyan", price: 150000000, style: "godly" },
+    "T139": { name: "Galactic Core", bg: ["#210b2c", "#000000"], pipe: "#f3e5f5", price: 200000000, style: "godly" },
+    "T140": { name: "Dragon Gold", bg: ["#ffd700", "#000000"], pipe: "#ff8f00", price: 300000000, style: "godly" },
+    "T141": { name: "Dark Energy", bg: ["#000000", "#000000"], pipe: "#1a237e", price: 450000000, style: "godly" },
+    "T142": { name: "Prism God", bg: ["#ff0000", "#0000ff"], pipe: "white", price: 500000000, style: "godly" },
+    "T143": { name: "Void Master", bg: ["#000000", "#0d0208"], pipe: "#00ff41", price: 600000000, style: "godly" },
+    "T144": { name: "Eternal Sun", bg: ["#ff8f00", "#ffeb3b"], pipe: "#f44336", price: 700000000, style: "godly" },
+    "T145": { name: "Absolute Zero", bg: ["#e1f5fe", "#01579b"], pipe: "#ffffff", price: 850000000, style: "godly" },
+    "T146": { name: "Alpha", bg: ["#000000", "#333333"], pipe: "silver", price: 1000000000, style: "godly" },
+    "T147": { name: "Omega", bg: ["#333333", "#000000"], pipe: "gold", price: 2000000000, style: "godly" },
+    "T148": { name: "Parallel Universe", bg: ["#1a237e", "#4a148c"], pipe: "#ffeb3b", price: 5000000000, style: "godly" },
+    "T149": { name: "Multiverse", bg: ["#000000", "#4a148c"], pipe: "rainbow", price: 8000000000, style: "godly" },
+    "T150": { name: "The Creator", bg: ["#ffffff", "#ffffff"], pipe: "black", price: 10000000000, style: "godly" }
+};
+
+    const canvas = document.getElementById("gameCanvas"), ctx = canvas.getContext("2d");
+    let bird = { x: 60, y: 300, w: 40, h: 32, v: 0, g: 0.28, jump: -6.2 };
+    let pipes = [], particles = [];
+
+    // --- Auth Handler ---
+    auth.onAuthStateChanged(async user => {
+        if(user) {
+            document.getElementById("auth-screen").style.display = "none";
+            document.getElementById("app-container").style.display = "block";
+            
+            const doc = await db.collection("players").doc(user.uid).get();
+            if(doc.exists) {
+                playerData = { ...playerData, ...doc.data() };
+            } else {
+                playerData.lpId = "LP-" + Math.floor(10000 + Math.random() * 89999);
+                await db.collection("players").doc(user.uid).set(playerData);
+            }
+
+            // Updated Admin Check
+            if(user.email === "admin@laypyay.com") {
+                document.getElementById("admin-entry").style.display = "block";
+                loadAdminList();
+            }
             updateUI();
+            loadLeaderboard();
         } else {
-            document.getElementById('auth-screen').style.display = 'flex';
+            document.getElementById("auth-screen").style.display = "flex";
+            document.getElementById("app-container").style.display = "none";
         }
     });
 
-    async function handleAuth(type) {
-        const e = document.getElementById('email').value;
-        const p = document.getElementById('password').value;
+    async function authAction(t) {
+        const e = document.getElementById("email").value, p = document.getElementById("pass").value;
         if(!e || !p) return alert("Fill all fields");
         try {
-            if(type === 'signup') await auth.createUserWithEmailAndPassword(e, p);
+            if(t === 'signup') await auth.createUserWithEmailAndPassword(e, p);
             else await auth.signInWithEmailAndPassword(e, p);
         } catch(err) { alert(err.message); }
     }
 
-    async function syncData() {
-        if (auth.currentUser) {
-            await db.collection('players').doc(auth.currentUser.uid).set(playerData);
-        }
-    }
-
-    // --- Game Actions ---
-    function startGame() {
-        gameState = "PLAYING";
-        score = 0; pipes.length = 0;
-        bird.y = canvas.height / 2; bird.vel = 0;
-        document.getElementById("menu-overlay").style.display = "none";
-        document.getElementById("pause-btn").style.display = "block";
-        document.getElementById("score-text").innerText = "0";
-    }
-
-    function pauseGame() {
-        if(gameState === "PLAYING") {
-            gameState = "PAUSED";
-            document.getElementById("menu-overlay").style.display = "flex";
-            document.getElementById("pause-btn").style.display = "none";
-        }
-    }
-
-    function die() {
-        gameState = "MENU";
-        if(score > playerData.highScore) playerData.highScore = score;
-        playerData.coins += Math.floor(score / 2);
-        syncData(); updateUI();
-        document.getElementById("menu-overlay").style.display = "flex";
-        document.getElementById("pause-btn").style.display = "none";
-    }
-
-    // --- Main Loop ---
-    function update() {
-        if(gameState !== "PLAYING") return;
-
-        bird.vel += bird.grav;
-        bird.y += bird.vel;
-        bird.rot = Math.min(Math.PI/4, Math.max(-Math.PI/4, bird.vel * 0.1));
-
-        if(bird.y + bird.h > canvas.height || bird.y < 0) die();
-
-        if(frame % 100 === 0) {
-            let gap = 170;
-            let top = Math.random() * (canvas.height - gap - 200) + 100;
-            pipes.push({ x: canvas.width, top, gap, passed: false });
-        }
-
-        pipes.forEach((p, i) => {
-            p.x -= 3.5;
-            // Collision
-            if(bird.x + bird.w - 5 > p.x && bird.x + 5 < p.x + 60) {
-                if(bird.y + 5 < p.top || bird.y + bird.h - 5 > p.top + p.gap) die();
-            }
-            // Score
-            if(!p.passed && p.x < bird.x) {
-                score++; p.passed = true;
-                document.getElementById("score-text").innerText = score;
-            }
-            if(p.x < -100) pipes.splice(i, 1);
-        });
-    }
-
-    function draw() {
-        const theme = themes[playerData.activeTheme] || themes.day;
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        let grad = ctx.createLinearGradient(0,0,0, canvas.height);
-        grad.addColorStop(0, theme.bg[0]); grad.addColorStop(1, theme.bg[1]);
-        ctx.fillStyle = grad; ctx.fillRect(0,0, canvas.width, canvas.height);
-
-        pipes.forEach(p => {
-            ctx.fillStyle = theme.pipe;
-            ctx.beginPath(); ctx.roundRect(p.x, 0, 60, p.top, [0,0,15,15]); ctx.fill();
-            ctx.beginPath(); ctx.roundRect(p.x, p.top + p.gap, 60, canvas.height, [15,15,0,0]); ctx.fill();
-        });
-
-        const s = skins[playerData.activeSkin];
-        ctx.save();
-        ctx.translate(bird.x + bird.w/2, bird.y + bird.h/2);
-        ctx.rotate(bird.rot);
-        ctx.fillStyle = s.color;
-        ctx.beginPath(); ctx.roundRect(-bird.w/2, -bird.h/2, bird.w, bird.h, 8); ctx.fill();
-        ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.arc(8, -5, 4, 0, Math.PI*2); ctx.fill();
-        ctx.restore();
-    }
-
-    function loop() {
-        update(); draw(); frame++;
-        requestAnimationFrame(loop);
-    }
-
-    // --- UI Helpers ---
-    function openSheet(id) { document.getElementById(id).classList.add("active"); }
-    function closeSheet(id) { document.getElementById(id).classList.remove("active"); }
-
+    // --- UI Update ---
     function updateUI() {
-        document.getElementById("high-score-val").innerText = playerData.highScore;
-        document.getElementById("coin-val-menu").innerText = playerData.coins;
-        document.getElementById("coin-val-shop").innerText = playerData.coins;
-
-        const sGrid = document.getElementById("skin-grid");
-        sGrid.innerHTML = Object.keys(skins).map(k => `
-            <div class="item-card ${playerData.activeSkin === k ? 'selected' : ''}" onclick="buySkin('${k}')">
-                <div style="width:40px; height:30px; background:${skins[k].color}; border-radius:8px; margin:0 auto 10px;"></div>
-                <b>${skins[k].name}</b><br>
-                <small>${playerData.ownedSkins.includes(k) ? 'Owned' : skins[k].price + ' 🪙'}</small>
+        document.getElementById("coin-val").innerText = playerData.coins;
+        document.getElementById("coin-hud").innerText = playerData.coins;
+        document.getElementById("best-val").innerText = playerData.best;
+        document.getElementById("lp-id-display").innerText = "ID: " + (playerData.lpId || "---");
+        
+        document.getElementById("skin-list").innerHTML = Object.keys(skins).map(k => `
+            <div class="day-box ${playerData.activeSkin === k ? 'active' : ''}" onclick="buySkin('${k}')">
+                <div style="width:35px; height:22px; background:${skins[k].color}; margin:0 auto 10px; border-radius:6px; ${skins[k].fx?'box-shadow:0 0 10px '+skins[k].color:''}"></div>
+                <b style="font-size:11px;">${skins[k].name}</b><br>
+                <small>${playerData.ownedSkins.includes(k) ? 'Use' : skins[k].price + ' 🪙'}</small>
             </div>
         `).join('');
 
-        const tGrid = document.getElementById("theme-grid");
-        tGrid.innerHTML = Object.keys(themes).map(k => `
-            <div class="item-card ${playerData.activeTheme === k ? 'selected' : ''}" onclick="buyTheme('${k}')">
-                <div style="width:100%; height:40px; background:linear-gradient(${themes[k].bg[0]}, ${themes[k].bg[1]}); border-radius:10px; margin-bottom:10px;"></div>
+        document.getElementById("theme-list").innerHTML = Object.keys(themes).map(k => `
+            <div class="day-box ${playerData.activeTheme === k ? 'active' : ''}" onclick="buyTheme('${k}')">
+                <div style="height:35px; background:linear-gradient(${themes[k].bg[0]}, ${themes[k].bg[1]}); margin-bottom:10px; border-radius:10px;"></div>
                 <b>${themes[k].name}</b><br>
-                <small>${playerData.ownedThemes.includes(k) ? 'Unlocked' : themes[k].price + ' 🪙'}</small>
+                <small>${playerData.ownedThemes.includes(k) ? 'Use' : themes[k].price + ' 🪙'}</small>
+            </div>
+        `).join('');
+
+        const rewards = [100, 200, 300, 500, 800, 1200, 5000];
+        document.getElementById("reward-grid").innerHTML = rewards.map((r, i) => `
+            <div class="day-box ${i === playerData.dayCount ? 'active' : ''}">Day ${i+1}<br><b>${r}</b></div>
+        `).join('');
+    }
+
+    async function sync() { if(auth.currentUser) await db.collection("players").doc(auth.currentUser.uid).update(playerData); }
+
+    async function loadLeaderboard() {
+        const snap = await db.collection("players").orderBy("best", "desc").limit(15).get();
+        const list = [];
+        snap.forEach(doc => list.push(doc.data()));
+        document.getElementById("leaderboard-list").innerHTML = list.map((u, i) => `
+            <div class="rank-item">
+                <div style="display:flex; align-items:center;">
+                    <span style="width:30px; font-weight:900; color:var(--ios-accent);">${i+1}</span>
+                    <div><b>${u.lpId}</b></div>
+                </div>
+                <div style="font-weight:800;">${u.best}</div>
             </div>
         `).join('');
     }
@@ -403,8 +537,9 @@
             playerData.coins -= skins[k].price;
             playerData.ownedSkins.push(k);
             playerData.activeSkin = k;
+            playSfx(800, 'triangle', 0.2);
         }
-        updateUI(); syncData();
+        updateUI(); sync();
     }
 
     function buyTheme(k) {
@@ -413,52 +548,286 @@
             playerData.coins -= themes[k].price;
             playerData.ownedThemes.push(k);
             playerData.activeTheme = k;
+            playSfx(800, 'triangle', 0.2);
         }
-        updateUI(); syncData();
+        updateUI(); sync();
     }
 
-    function toggleSound() { isMuted = document.getElementById("sound-toggle").checked; }
+    function claimReward() {
+        const rewards = [10000, 20000, 30000, 50000, 80000, 120000, 50000000];
+        const now = Date.now();
+        if(now - playerData.lastReward > 86400000) {
+            playerData.coins += rewards[playerData.dayCount];
+            playerData.dayCount = (playerData.dayCount + 1) % 7;
+            playerData.lastReward = now;
+            updateUI(); sync();
+            playSfx(1000, 'sine', 0.4);
+        } else alert("Come back tomorrow!");
+    }
+
+    // --- Game Core ---
+    function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+
+    function startGame() {
+        resizeCanvas();
+        gameState = "PLAYING"; score = 0; pipes = []; particles = [];
+        bird.y = canvas.height / 2; bird.v = 0;
+        document.getElementById("menu-overlay").style.display = "none";
+        document.getElementById("score-val").innerText = "0";
+        playSfx(400, 'sine', 0.2);
+    }
+
+    function die() {
+        if(gameState === "MENU") return;
+        gameState = "MENU";
+        playerData.coins += Math.floor(score / 3);
+        if(score > playerData.best) { playerData.best = score; loadLeaderboard(); }
+        document.getElementById("menu-overlay").style.display = "flex";
+        updateUI(); sync();
+        playSfx(150, 'sawtooth', 0.4);
+    }
+
+    function update() {
+        if(gameState !== "PLAYING") return;
+        bird.v += bird.g; bird.y += bird.v;
+        if(bird.y + bird.h > canvas.height || bird.y < 0) die();
+
+        if(frame % 100 === 0) {
+            let gap = 170 - Math.min(60, score);
+            let top = Math.random() * (canvas.height - gap - 200) + 100;
+            pipes.push({ x: canvas.width, top, gap, passed: false });
+        }
+
+        pipes.forEach((p, i) => {
+            p.x -= (4 + score * 0.05);
+            if(bird.x + bird.w - 10 > p.x && bird.x + 10 < p.x + 70) {
+                if(bird.y + 10 < p.top || bird.y + bird.h - 10 > p.top + p.gap) die();
+            }
+            if(!p.passed && p.x < bird.x) {
+                score++; p.passed = true;
+                document.getElementById("score-val").innerText = score;
+                playSfx(900, 'triangle', 0.05);
+            }
+            if(p.x < -80) pipes.splice(i, 1);
+        });
+
+        if(skins[playerData.activeSkin].fx && frame % 2 === 0) {
+            particles.push({ x: bird.x, y: bird.y + bird.h/2, r: Math.random()*6, c: skins[playerData.activeSkin].color, l: 25 });
+        }
+        particles.forEach((p, i) => { p.x -= 2; p.l--; if(p.l <= 0) particles.splice(i, 1); });
+    }
+
+    function draw() {
+        const t = themes[playerData.activeTheme];
+        let grad = ctx.createLinearGradient(0,0,0, canvas.height);
+        grad.addColorStop(0, t.bg[0]); grad.addColorStop(1, t.bg[1]);
+        ctx.fillStyle = grad; ctx.fillRect(0,0, canvas.width, canvas.height);
+
+        pipes.forEach(p => {
+    ctx.fillStyle = t.pipe;
     
-    function resetGameData() {
-        if(confirm("Are you sure? This will reset all your progress!")) {
-            playerData = { coins: 0, highScore: 0, activeSkin: "classic", ownedSkins: ["classic"], activeTheme: "day", ownedThemes: ["day"] };
-            syncData(); updateUI();
+    if(t.style === "godly") {
+        // Godly: Glowing with an inner light and animated vibe
+        ctx.shadowBlur = 30; ctx.shadowColor = t.pipe;
+        ctx.beginPath(); ctx.roundRect(p.x, 0, 70, p.top, [0,0,35,35]); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(p.x, p.top + p.gap, 70, canvas.height, [35,35,0,0]); ctx.fill();
+        // White inner "shine" line
+        ctx.strokeStyle = "rgba(255,255,255,0.8)"; ctx.lineWidth = 4;
+        ctx.strokeRect(p.x + 10, 0, 50, p.top - 10);
+        ctx.strokeRect(p.x + 10, p.top + p.gap + 10, 50, canvas.height);
+        ctx.shadowBlur = 0;
+
+    } else if(t.style === "legendary") {
+        // Legendary: Classic metallic look with heavy stroke
+        ctx.shadowBlur = 15; ctx.shadowColor = t.pipe;
+        ctx.beginPath(); ctx.roundRect(p.x, 0, 70, p.top, [0,0,20,20]); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(p.x, p.top + p.gap, 70, canvas.height, [20,20,0,0]); ctx.fill();
+        ctx.strokeStyle = "#fff"; ctx.lineWidth = 3;
+        ctx.strokeRect(p.x + 5, 0, 60, p.top - 5);
+        ctx.strokeRect(p.x + 5, p.top + p.gap + 5, 60, canvas.height);
+        ctx.shadowBlur = 0;
+
+    } else if(t.style === "neon") {
+        // Neon: Square edges with double glow
+        ctx.shadowBlur = 20; ctx.shadowColor = t.pipe;
+        ctx.beginPath(); ctx.roundRect(p.x, 0, 70, p.top, 5); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(p.x, p.top + p.gap, 70, canvas.height, 5); ctx.fill();
+        ctx.strokeStyle = "white"; ctx.lineWidth = 1;
+        ctx.strokeRect(p.x + 2, 2, 66, p.top - 4);
+        ctx.shadowBlur = 0;
+
+    } else if(t.style === "glass") {
+        // Glass: Transparent-ish look with gloss
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath(); ctx.roundRect(p.x, 0, 70, p.top, 15); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(p.x, p.top + p.gap, 70, canvas.height, 15); ctx.fill();
+        ctx.globalAlpha = 1.0;
+        ctx.strokeStyle = "rgba(255,255,255,0.5)"; ctx.lineWidth = 5;
+        ctx.strokeRect(p.x + 5, 5, 10, p.top - 10); // Vertical highlight
+
+    } else if(t.style === "retro") {
+        // Retro: Thick blocky borders (GameBoy style)
+        ctx.beginPath(); ctx.rect(p.x, 0, 70, p.top); ctx.fill();
+        ctx.beginPath(); ctx.rect(p.x, p.top + p.gap, 70, canvas.height); ctx.fill();
+        ctx.strokeStyle = "#000"; ctx.lineWidth = 6;
+        ctx.strokeRect(p.x, 0, 70, p.top);
+        ctx.strokeRect(p.x, p.top + p.gap, 70, canvas.height);
+
+    } else if(t.style === "soft") {
+        // Soft: Very rounded bubbles
+        ctx.beginPath(); ctx.roundRect(p.x, 0, 70, p.top, 35); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(p.x, p.top + p.gap, 70, canvas.height, 35); ctx.fill();
+
+    } else {
+        // Classic: Your default design
+        ctx.beginPath(); ctx.roundRect(p.x, 0, 70, p.top, [0,0,12,12]); ctx.fill();
+        ctx.beginPath(); ctx.roundRect(p.x, p.top + p.gap, 70, canvas.height, [12,12,0,0]); ctx.fill();
+    }
+});
+
+        // Particles (အစက်အပြောက်များ) - Glow effect ထည့်ထားပါတယ်
+        particles.forEach(p => {
+            ctx.shadowBlur = 10; ctx.shadowColor = p.c; // Particle တွေကို glow ဖြစ်စေရန်
+            ctx.fillStyle = p.c; 
+            ctx.globalAlpha = p.l/25;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0; // တခြားအရာတွေ မပြန့်အောင် ပြန်ပိတ်ရန်
+        });
+        ctx.globalAlpha = 1;
+
+        const s = skins[playerData.activeSkin];
+        ctx.save();
+        
+        // --- နေရာချခြင်းနှင့် လည်ပတ်ခြင်း ---
+        ctx.translate(bird.x + bird.w/2, bird.y + bird.h/2);
+        ctx.rotate(Math.max(-0.4, Math.min(0.4, bird.v * 0.1))); // လည်ပတ်နှုန်းကို ပိုညက်အောင် ပြင်ထားတယ်
+
+        // --- ငှက်ကိုယ်ထည် (Body) ---
+        if(s.fx) { 
+            ctx.shadowBlur = 20; 
+            ctx.shadowColor = s.color; 
         }
+        
+        // Body ကို Gradient လေးနဲ့ ပိုလှအောင် လုပ်မယ်
+        let birdGrad = ctx.createLinearGradient(-bird.w/2, -bird.h/2, -bird.w/2, bird.h/2);
+        birdGrad.addColorStop(0, s.color);
+        birdGrad.addColorStop(1, shadeColor(s.color, -20)); // အောက်ဘက်ကို နည်းနည်း ရင့်စေမယ်
+        
+        ctx.fillStyle = birdGrad;
+        ctx.beginPath(); 
+        ctx.roundRect(-bird.w/2, -bird.h/2, bird.w, bird.h, 12); 
+        ctx.fill();
+
+        // --- အတောင်ပံ (Wing) --- ပိုညက်ညောတဲ့ အတောင်ပံခတ်မှု
+        ctx.fillStyle = "rgba(255,255,255,0.6)";
+        let wingY = Math.sin(frame * 0.2) * 6; // အတောင်ပံ အနိမ့်အမြင့်
+        ctx.beginPath();
+        ctx.ellipse(-8, wingY, 12, 7, Math.PI/4, 0, Math.PI*2);
+        ctx.fill();
+
+        // --- မျက်လုံး (Eye) --- ပိုပြီး သက်ဝင်စေရန်
+        ctx.fillStyle = "#fff";
+        ctx.beginPath(); ctx.arc(10, -5, 6, 0, Math.PI*2); ctx.fill(); // မျက်လုံးအိမ်
+        
+        // မျက်ဆန် (Pupil) - အောက်ကို ကျတဲ့အချိန် အပေါ်ကြည့်သလိုမျိုး logic ထည့်ထားတယ်
+        ctx.fillStyle = "#000";
+        let eyeLook = Math.max(-2, Math.min(2, bird.v * 0.5));
+        ctx.beginPath(); ctx.arc(12, -5 + eyeLook, 2.5, 0, Math.PI*2); ctx.fill();
+
+        // --- နှုတ်သီး (Beak) --- ဒါက ထပ်တိုးပေးထားတာပါ
+        ctx.fillStyle = "#FF9500"; // Orange color
+        ctx.beginPath();
+        ctx.moveTo(18, -2);
+        ctx.lineTo(26, 2);
+        ctx.lineTo(18, 6);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.restore();
+
+// အရောင်ကို နည်းနည်း ရင့်အောင်/နုအောင် လုပ်ပေးမယ့် helper function (ဒါကို code အပြင်မှာ ထည့်ထားပါ)
+function shadeColor(color, percent) {
+    var R = parseInt(color.substring(1,3),16);
+    var G = parseInt(color.substring(3,5),16);
+    var B = parseInt(color.substring(5,7),16);
+    R = parseInt(R * (100 + percent) / 100);
+    G = parseInt(G * (100 + percent) / 100);
+    B = parseInt(B * (100 + percent) / 100);
+    R = (R<255)?R:255; G = (G<255)?G:255; B = (B<255)?B:255;
+    var RR = ((R.toString(16).length==1)?"0"+R.toString(16):R.toString(16));
+    var GG = ((G.toString(16).length==1)?"0"+G.toString(16):G.toString(16));
+    var BB = ((B.toString(16).length==1)?"0"+B.toString(16):B.toString(16));
+    return "#"+RR+GG+BB;
+}
     }
 
+    function loop() { update(); draw(); frame++; requestAnimationFrame(loop); }
+
+    function openSheet(id) { document.getElementById(id).classList.add("active"); playSfx(600, 'sine', 0.1); }
+    function closeSheet(id) { document.getElementById(id).classList.remove("active"); }
     function logout() { auth.signOut(); location.reload(); }
 
-    // Input Handling (Fix for Mobile Jump)
-    window.addEventListener("touchstart", (e) => {
-        // Only jump if not clicking on UI buttons
-        if(e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT' && !e.target.closest('.ios-sheet')) {
-            if(gameState === "PLAYING") bird.vel = bird.jump;
-            if(gameState === "MENU") startGame();
-            e.preventDefault();
-        }
-    }, {passive: false});
+    function handleAction(e) {
+        if(e.target.tagName === 'BUTTON' || e.target.tagName === 'INPUT' || e.target.closest('.sheet')) return;
+        if(gameState === "PLAYING") { bird.v = bird.jump; playSfx(500, 'sine', 0.08); }
+        if(e.type === "touchstart" && e.cancelable) e.preventDefault();
+    }
 
-    // Keyboard support
-    window.addEventListener("keydown", (e) => {
-        if(e.code === "Space") {
-            if(gameState === "PLAYING") bird.vel = bird.jump;
-            else if(gameState === "MENU") startGame();
-        }
-    });
+    window.addEventListener("touchstart", handleAction, {passive: false});
+    window.addEventListener("mousedown", (e) => { if(e.button === 0) handleAction(e); });
+    window.addEventListener("keydown", (e) => { if(e.code === "Space") handleAction(e); });
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
 
-    // Initial Loading
-    let prog = 0;
-    let inv = setInterval(() => {
-        prog += 10;
-        document.getElementById("progress-bar").style.width = prog + "%";
-        if(prog >= 100) {
-            clearInterval(inv);
-            document.getElementById("loading-screen").style.opacity = 0;
-            setTimeout(() => document.getElementById("loading-screen").style.display = "none", 800);
-        }
-    }, 60);
+    let p = 0;
+    let l = setInterval(() => {
+        p += 5; document.getElementById("load-bar").style.width = p + "%";
+        if(p >= 100) { clearInterval(l); document.getElementById("loading-screen").style.opacity = 0; setTimeout(() => { document.getElementById("loading-screen").style.display = "none"; loop(); }, 500); }
+    }, 50);
 
-    loop();
+    let allUsers = [];
+    async function loadAdminList() {
+        const snap = await db.collection("players").get();
+        allUsers = [];
+        snap.forEach(doc => allUsers.push({ id: doc.id, ...doc.data() }));
+        renderAdminUsers(allUsers);
+    }
+   function renderAdminUsers(list) {
+    document.getElementById("admin-user-list").innerHTML = list.map(u => `
+        <div class="rank-item">
+            <div style="text-align:left"><b>${u.lpId}</b><br><small>${u.coins} Coins</small></div>
+            <div style="display:flex; gap:5px;">
+                <input type="number" id="amt-${u.id}" placeholder="Amt" 
+                    style="width:60px; border-radius:10px; border:1px solid #eee; padding:5px; font-size:12px;">
+                <button onclick="adminGive('${u.id}')" 
+                    style="background:var(--ios-green); color:#fff; border:none; padding:8px 12px; border-radius:10px;">Give</button>
+            </div>
+        </div>
+    `).join('');
+}
+   async function adminGive(uid) {
+    const amountInput = document.getElementById(`amt-${uid}`);
+    const amountToAdd = parseInt(amountInput.value);
+
+    // Input ထဲမှာ ဂဏန်းမရှိရင် သို့မဟုတ် ၀ ထက်နည်းရင် ဘာမှမလုပ်ဘဲ ပြန်ထွက်မယ်
+    if (isNaN(amountToAdd) || amountToAdd <= 0) {
+        alert("Enter a valid amount");
+        return;
+    }
+
+    const ref = db.collection("players").doc(uid);
+    const doc = await ref.get();
+    const currentCoins = doc.data().coins || 0;
+
+    await ref.update({ coins: currentCoins + amountToAdd });
+    
+    // Update ဖြစ်ပြီးရင် list ကိုပြန်ခေါ်မယ်
+    loadAdminList();
+}
+    function searchUser() {
+        const q = document.getElementById("user-search").value.toLowerCase();
+        renderAdminUsers(allUsers.filter(u => u.lpId.toLowerCase().includes(q)));
+    }
 </script>
 </body>
 </html>
